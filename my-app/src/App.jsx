@@ -37,7 +37,6 @@ function App() {
           const account = accounts[0]
           setAccount(account)
           await updateWalletInfo(account)
-          setIsConnected(true)
         }
       } catch (error) {
         console.error("Lỗi khi kiểm tra MetaMask:", error)
@@ -46,34 +45,44 @@ function App() {
 
     checkIfWalletIsConnected()
 
-    if (window.ethereum) {
-      window.ethereum.on('chainChanged', (chainId) => {
-       
-        checkIfWalletIsConnected()
-      })
+  
+    const handleChainChanged = (chainId) => {
+      console.log("Chain changed to:", chainId)
+     
+      checkIfWalletIsConnected()
+    }
+    
+   
+    const handleAccountsChanged = (accounts) => {
+      console.log("Accounts changed:", accounts)
+      if (accounts.length === 0) {
+        // Người dùng đã disconnect
+        resetWalletInfo()
+      } else {
       
-      window.ethereum.on('accountsChanged', (accounts) => {
-       
-        if (accounts.length === 0) {
-           
-          resetWalletInfo()
-        } else {
-          checkIfWalletIsConnected()
-        }
-      })
+        setAccount(accounts[0])
+        updateWalletInfo(accounts[0])
+      }
+    }
+
+    if (window.ethereum) {
+      window.ethereum.on('chainChanged', handleChainChanged)
+      window.ethereum.on('accountsChanged', handleAccountsChanged)
     }
 
     return () => {
-       
+      
       if (window.ethereum) {
-        window.ethereum.removeListener('chainChanged', () => {})
-        window.ethereum.removeListener('accountsChanged', () => {})
+        window.ethereum.removeListener('chainChanged', handleChainChanged)
+        window.ethereum.removeListener('accountsChanged', handleAccountsChanged)
       }
     }
   }, [])
 
   const updateWalletInfo = async (account) => {
     try {
+      if (!account) return;
+      
       const provider = new ethers.providers.Web3Provider(window.ethereum)
       setProvider(provider)
       
@@ -85,7 +94,7 @@ function App() {
       const chainIdDecimal = network.chainId
       setChainId(chainIdDecimal)
 
-       
+     
       if (networks[chainIdDecimal]) {
         setNetworkName(networks[chainIdDecimal].name)
         setCoinName(networks[chainIdDecimal].coin)
@@ -93,6 +102,9 @@ function App() {
         setNetworkName('Unknown Network')
         setCoinName('???')
       }
+      
+
+      setIsConnected(true)
     } catch (error) {
       console.error("Lỗi khi cập nhật thông tin ví:", error)
     }
@@ -105,12 +117,21 @@ function App() {
         return
       }
 
+      console.log("Requesting accounts...")
+   
       const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
-      const account = accounts[0]
+      console.log("Accounts received:", accounts)
       
-      setAccount(account)
-      await updateWalletInfo(account)
-      setIsConnected(true)
+      if (accounts.length > 0) {
+        const account = accounts[0]
+        console.log("Setting account:", account)
+        
+        setAccount(account)
+        
+      
+        console.log("Updating wallet info...")
+        await updateWalletInfo(account)
+      }
     } catch (error) {
       console.error("Lỗi khi kết nối với MetaMask:", error)
     }
@@ -136,19 +157,19 @@ function App() {
     try {
       setSwitchingNetwork(true)
       
-      // Thử chuyển đổi sang mạng
+
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: hexChainId }]
       })
       
-      // Nếu thành công, cập nhật thông tin
+     
       await updateWalletInfo(account)
     } catch (error) {
-      // Nếu mạng chưa được thêm vào MetaMask
+     
       if (error.code === 4902) {
         try {
-          // Thêm mạng mới
+         
           const networkConfig = getNetworkConfig(newChainId)
           if (networkConfig) {
             await window.ethereum.request({
