@@ -81,11 +81,45 @@ function App() {
   const { disconnect } = useDisconnect();
   const account = useActiveAccount();
   const { switchChain, isLoading: isSwitchingChain } = useSwitchActiveWalletChain();
-  const [selectedNetworkId, setSelectedNetworkId] = useState(1); // Default to Ethereum Mainnet
+  const [selectedNetworkId, setSelectedNetworkId] = useState(1); 
   const [showNetworkDropdown, setShowNetworkDropdown] = useState(false);
   const dropdownRef = useRef(null);
+  const [balance, setBalance] = useState(null);
 
-  
+  useEffect(() => {
+    const fetchBalance = async () => {
+      if (account && window.ethereum) {
+        try {
+          
+          const result = await window.ethereum.request({
+            method: 'eth_getBalance',
+            params: [account.address, 'latest'],
+          });
+          
+       
+          const balanceInWei = parseInt(result, 16);
+          const balanceInEth = balanceInWei / 1e18;
+          
+          setBalance({
+            displayValue: balanceInEth.toFixed(4),
+            symbol: networks[selectedNetworkId].coin
+          });
+        } catch (error) {
+          console.error("Lỗi khi lấy balance:", error);
+        }
+      } else {
+        setBalance(null);
+      }
+    };
+    
+    fetchBalance();
+    
+    
+    const intervalId = setInterval(fetchBalance, 10000);
+    
+    return () => clearInterval(intervalId);
+  }, [account, selectedNetworkId]);
+
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -186,7 +220,7 @@ function App() {
             <div className="info-row">
               <div className="info-label">Balance:</div>
               <div className="info-value">
-                {account.balance ? `${account.balance.displayValue} ${account.balance.symbol}` : `0.0 ${networks[selectedNetworkId].coin}`}
+                {balance ? `${balance.displayValue} ${balance.symbol}` : `0.0 ${networks[selectedNetworkId].coin}`}
               </div>
             </div>
             
