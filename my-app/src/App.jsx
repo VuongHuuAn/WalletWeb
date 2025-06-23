@@ -248,7 +248,7 @@ function App() {
                 {Object.entries(networks).map(([id, network]) => (
                   <div 
                     key={id} 
-                    className="network-option"
+                    className={`network-option ${Number(id) === selectedNetworkId ? 'selected' : ''}`}
                     onClick={() => handleNetworkChange(Number(id))}
                   >
                     {network.name}
