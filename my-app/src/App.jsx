@@ -81,7 +81,7 @@ function App() {
   const { disconnect } = useDisconnect();
   const account = useActiveAccount();
   const { switchChain, isLoading: isSwitchingChain } = useSwitchActiveWalletChain();
-  const [selectedNetworkId, setSelectedNetworkId] = useState(43114); // Default to Avalanche
+  const [selectedNetworkId, setSelectedNetworkId] = useState(1); // Default to Ethereum Mainnet
   const [showNetworkDropdown, setShowNetworkDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
