@@ -4,7 +4,8 @@ import {
   useConnect, 
   useDisconnect, 
   useActiveAccount, 
-  useSwitchActiveWalletChain 
+  useSwitchActiveWalletChain,
+  useWalletBalance
 } from "thirdweb/react";
 import { createWallet } from "thirdweb/wallets";
 import './App.css';
@@ -84,41 +85,12 @@ function App() {
   const [selectedNetworkId, setSelectedNetworkId] = useState(1); 
   const [showNetworkDropdown, setShowNetworkDropdown] = useState(false);
   const dropdownRef = useRef(null);
-  const [balance, setBalance] = useState(null);
-
-  useEffect(() => {
-    const fetchBalance = async () => {
-      if (account && window.ethereum) {
-        try {
-          
-          const result = await window.ethereum.request({
-            method: 'eth_getBalance',
-            params: [account.address, 'latest'],
-          });
-          
-       
-          const balanceInWei = parseInt(result, 16);
-          const balanceInEth = balanceInWei / 1e18;
-          
-          setBalance({
-            displayValue: balanceInEth.toFixed(4),
-            symbol: networks[selectedNetworkId].coin
-          });
-        } catch (error) {
-          console.error("Lỗi khi lấy balance:", error);
-        }
-      } else {
-        setBalance(null);
-      }
-    };
-    
-    fetchBalance();
-    
-    
-    const intervalId = setInterval(fetchBalance, 10000);
-    
-    return () => clearInterval(intervalId);
-  }, [account, selectedNetworkId]);
+  
+  const { data: balance, isLoading: isBalanceLoading } = useWalletBalance({
+    address: account?.address,
+    chain: networks[selectedNetworkId].hexChainId,
+    client: client
+  });
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -220,7 +192,13 @@ function App() {
             <div className="info-row">
               <div className="info-label">Balance:</div>
               <div className="info-value">
-                {balance ? `${balance.displayValue} ${balance.symbol}` : `0.0 ${networks[selectedNetworkId].coin}`}
+                {isBalanceLoading ? (
+                  "Đang tải..."
+                ) : balance ? (
+                  `${parseFloat(balance.displayValue).toFixed(4)} ${balance.symbol}`
+                ) : (
+                  `0.0 ${networks[selectedNetworkId].coin}`
+                )}
               </div>
             </div>
             
