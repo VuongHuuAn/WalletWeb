@@ -105,11 +105,32 @@ function App() {
     };
   }, []);
 
+  useEffect(() => {
+    const reconnectWallet = async () => {
+      const savedWallet = localStorage.getItem("wallet");
+      if (savedWallet === "metamask") {
+        try {
+          await connect(async () => {
+            const metamask = createWallet("io.metamask");
+            await metamask.connect({ client });
+            return metamask;
+          });
+        } catch (error) {
+          console.error("Auto reconnect error:", error);
+          localStorage.removeItem("wallet");
+        }
+      }
+    };
+    
+    reconnectWallet();
+  }, [connect]);
+
   const handleConnect = async () => {
     try {
       await connect(async () => {
         const metamask = createWallet("io.metamask");
         await metamask.connect({ client });
+        localStorage.setItem("wallet", "metamask");
         return metamask;
       });
     } catch (error) {
@@ -120,9 +141,10 @@ function App() {
   const handleDisconnect = async () => {
     try {
       await disconnect();
+      localStorage.removeItem("wallet");
     } catch (error) {
       console.error("Disconnect error:", error);
-     
+      localStorage.removeItem("wallet");
       window.localStorage.removeItem("thirdweb:wallet");
       window.location.reload();
     }
