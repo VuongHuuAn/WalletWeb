@@ -5,77 +5,39 @@ import {
   useDisconnect, 
   useActiveAccount, 
   useSwitchActiveWalletChain,
-  useWalletBalance
+  useWalletBalance,
+  ChainProvider,
+  ChainIcon,
+  ChainName
 } from "thirdweb/react";
 import { createWallet } from "thirdweb/wallets";
+import { defineChain, ethereum, polygon, bsc, bscTestnet, avalanche } from "thirdweb/chains";
 import './App.css';
 
 const client = createThirdwebClient({
   clientId: "4849acc8ab094549702f7a44d8e4265d",
 });
 
-const networks = {
-  1: { 
-    name: 'Ethereum Mainnet', 
-    coin: 'ETH', 
-    hexChainId: '0x1',
-    params: {
-      chainId: '0x1',
-      chainName: 'Ethereum Mainnet',
-      nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
-      rpcUrls: ['https://mainnet.infura.io/v3/'],
-      blockExplorerUrls: ['https://etherscan.io']
-    }
-  },
-  137: { 
-    name: 'Polygon Mainnet', 
-    coin: 'MATIC', 
-    hexChainId: '0x89',
-    params: {
-      chainId: '0x89',
-      chainName: 'Polygon Mainnet',
-      nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
-      rpcUrls: ['https://polygon-rpc.com/'],
-      blockExplorerUrls: ['https://polygonscan.com']
-    }
-  },
-  56: { 
-    name: 'BNB Smart Chain', 
-    coin: 'BNB', 
-    hexChainId: '0x38',
-    params: {
-      chainId: '0x38',
-      chainName: 'BNB Smart Chain',
-      nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-      rpcUrls: ['https://bsc-dataseed.binance.org/'],
-      blockExplorerUrls: ['https://bscscan.com']
-    }
-  },
-  97: { 
-    name: 'BNB Testnet', 
-    coin: 'BNB', 
-    hexChainId: '0x61',
-    params: {
-      chainId: '0x61',
-      chainName: 'BNB Testnet',
-      nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
-      rpcUrls: ['https://data-seed-prebsc-1-s1.binance.org:8545/'],
-      blockExplorerUrls: ['https://testnet.bscscan.com']
-    }
-  },
-  43114: { 
-    name: 'Avalanche C-Chain', 
-    coin: 'AVAX', 
-    hexChainId: '0xa86a',
-    params: {
-      chainId: '0xa86a',
-      chainName: 'Avalanche C-Chain',
-      nativeCurrency: { name: 'Avalanche', symbol: 'AVAX', decimals: 18 },
-      rpcUrls: ['https://api.avax.network/ext/bc/C/rpc'],
-      blockExplorerUrls: ['https://snowtrace.io']
-    }
-  },
-}
+
+const networks = [
+  { id: 1, chainId: "0x1", chain: ethereum, name: "Ethereum", coin: "ETH" },
+  { id: 137, chainId: "0x89", chain: polygon, name: "Polygon", coin: "MATIC" },
+  { id: 56, chainId: "0x38", chain: bsc, name: "BNB Smart Chain", coin: "BNB" },
+  { id: 97, chainId: "0x61", chain: bscTestnet, name: "BNB Testnet", coin: "BNB" },
+  { id: 43114, chainId: "0xa86a", chain: avalanche, name: "Avalanche C-Chain", coin: "AVAX" }
+];
+
+
+const getChainById = (chainId) => {
+  const network = networks.find(net => net.id === Number(chainId));
+  return network?.chain || ethereum;
+};
+
+
+const getCoinByChainId = (chainId) => {
+  const network = networks.find(net => net.id === Number(chainId));
+  return network?.coin || "ETH";
+};
 
 function App() {
   const { connect, isConnecting } = useConnect();
@@ -88,7 +50,7 @@ function App() {
   
   const { data: balance, isLoading: isBalanceLoading } = useWalletBalance({
     address: account?.address,
-    chain: networks[selectedNetworkId].hexChainId,
+    chain: getChainById(selectedNetworkId),
     client: client
   });
 
@@ -156,22 +118,31 @@ function App() {
     
     if (account) {
       try {
-        console.log("Switching to chain:", networks[networkId].hexChainId);
+        const network = networks.find(net => net.id === networkId);
+        console.log("Switching to chain:", network.chainId);
       
         if (window.ethereum) {
           try {
             await window.ethereum.request({
               method: 'wallet_switchEthereumChain',
-              params: [{ chainId: networks[networkId].hexChainId }],
+              params: [{ chainId: network.chainId }],
             });
           } catch (switchError) {
             console.error("Switch error:", switchError);
            
             if (switchError.code === 4902) {
               try {
+                
+                const selectedChain = getChainById(networkId);
                 await window.ethereum.request({
                   method: 'wallet_addEthereumChain',
-                  params: [networks[networkId].params],
+                  params: [{
+                    chainId: network.chainId,
+                    chainName: selectedChain.name,
+                    nativeCurrency: selectedChain.nativeCurrency,
+                    rpcUrls: [selectedChain.rpc],
+                    blockExplorerUrls: [selectedChain.explorers?.[0]?.url || ""]
+                  }],
                 });
               } catch (addError) {
                 console.error("Error adding chain:", addError);
@@ -179,8 +150,7 @@ function App() {
             }
           }
         } else {
-         
-          await switchChain({ chainId: networks[networkId].hexChainId });
+          await switchChain({ chainId: network.chainId });
         }
       } catch (error) {
         console.error("Network switch error:", error);
@@ -219,14 +189,20 @@ function App() {
                 ) : balance ? (
                   `${parseFloat(balance.displayValue).toFixed(4)} ${balance.symbol}`
                 ) : (
-                  `0.0 ${networks[selectedNetworkId].coin}`
+                  `0.0 ${getCoinByChainId(selectedNetworkId)}`
                 )}
               </div>
             </div>
             
             <div className="info-row">
               <div className="info-label">Network:</div>
-              <div className="info-value">{networks[selectedNetworkId].name}</div>
+              <div className="info-value">
+                <ChainProvider chain={getChainById(selectedNetworkId)}>
+                  <div className="network-info">
+                    <ChainIcon /> <ChainName />
+                  </div>
+                </ChainProvider>
+              </div>
             </div>
           </>
         )}
@@ -245,13 +221,15 @@ function App() {
             
             {showNetworkDropdown && (
               <div className="network-dropdown">
-                {Object.entries(networks).map(([id, network]) => (
+                {networks.map((network) => (
                   <div 
-                    key={id} 
-                    className={`network-option ${Number(id) === selectedNetworkId ? 'selected' : ''}`}
-                    onClick={() => handleNetworkChange(Number(id))}
+                    key={network.id} 
+                    className={`network-option ${network.id === selectedNetworkId ? 'selected' : ''}`}
+                    onClick={() => handleNetworkChange(network.id)}
                   >
-                    {network.name}
+                    <ChainProvider chain={network.chain}>
+                      <ChainIcon /> <ChainName />
+                    </ChainProvider>
                   </div>
                 ))}
               </div>
